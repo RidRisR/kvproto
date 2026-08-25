@@ -1,0 +1,143 @@
+// Copyright 2026 TiKV Project Authors. Licensed under Apache-2.0.
+// Modifications Copyright 2026 PingCAP, Inc.
+
+syntax = "proto3";
+
+package classic_restorepb;
+
+import "brpb.proto";
+import "gogoproto/gogo.proto";
+import "import_sstpb.proto";
+import "kvrpcpb.proto";
+import "metapb.proto";
+import "rustproto.proto";
+
+option java_package = "org.tikv.kvproto";
+option (gogoproto.goproto_sizecache_all) = false;
+option (gogoproto.goproto_unkeyed_all) = false;
+option (gogoproto.goproto_unrecognized_all) = false;
+option (gogoproto.marshaler_all) = true;
+option (gogoproto.sizer_all) = true;
+option (gogoproto.unmarshaler_all) = true;
+option (rustproto.lite_runtime_all) = true;
+
+// PrepareTaskRequestV1 starts one physical execution of an immutable Region
+// restore task. task_spec is hashed exactly as received and is therefore kept
+// as opaque bytes at this transport boundary.
+message PrepareTaskRequestV1 {
+  uint64 prepare_execution_id = 1;
+  // Serialized ClassicRestoreTaskSpecV1 bytes. Producers must persist and
+  // reuse these exact bytes for retries of the same task.
+  bytes task_spec = 2;
+  RuntimeAccessV1 runtime_access = 3;
+
+  // Reserved for a downstream fork.
+  reserved 1000 to 1199;
+}
+
+// RuntimeAccessV1 carries source access material that may rotate between
+// retries and therefore must not become part of the immutable TaskSpec.
+message RuntimeAccessV1 {
+  backup.StorageBackend storage_backend = 1;
+  backup.CipherInfo cipher_info = 2;
+
+  // Reserved for a downstream fork.
+  reserved 1000 to 1199;
+}
+
+// PrepareTaskResponseV1 identifies the durable PreparedResult published by
+// the requested execution. The hash is exactly 32 bytes.
+message PrepareTaskResponseV1 {
+  uint64 prepare_execution_id = 1;
+  bytes prepared_result_hash = 2;
+
+  // Reserved for a downstream fork.
+  reserved 1000 to 1199;
+}
+
+// PrepareTaskErrorV1 is intentionally safe to return across the Worker HTTP
+// boundary. safe_message must not include credentials, keys, or object names.
+message PrepareTaskErrorV1 {
+  PrepareTaskErrorCode code = 1;
+  string safe_message = 2;
+
+  // Reserved for a downstream fork.
+  reserved 1000 to 1199;
+}
+
+// PrepareTaskErrorCode describes the caller action, not the Worker's internal
+// dependency error tree.
+enum PrepareTaskErrorCode {
+  PREPARE_TASK_ERROR_CODE_UNSPECIFIED = 0;
+  PREPARE_TASK_ERROR_CODE_INVALID_ARGUMENT = 1;
+  PREPARE_TASK_ERROR_CODE_UNSUPPORTED = 2;
+  PREPARE_TASK_ERROR_CODE_BUSY = 3;
+  PREPARE_TASK_ERROR_CODE_EXECUTION_FAILED = 4;
+  PREPARE_TASK_ERROR_CODE_CANCELLED = 5;
+  PREPARE_TASK_ERROR_CODE_CONFLICT = 6;
+  PREPARE_TASK_ERROR_CODE_CORRUPTION = 7;
+  PREPARE_TASK_ERROR_CODE_INTERNAL = 8;
+  PREPARE_TASK_ERROR_CODE_TARGET_MISMATCH = 9;
+  PREPARE_TASK_ERROR_CODE_SOURCE_BACKEND_MISMATCH = 10;
+}
+
+// ClassicRestoreTaskSpecV1 is the immutable intent of one Region-scoped
+// Classic Restore task. Before serializing or checkpointing this message,
+// producers must remove all credentials from source_backend_binding and put
+// them in RuntimeAccessV1 instead. Consumers must reject a binding containing
+// credentials.
+message ClassicRestoreTaskSpecV1 {
+  bytes restore_id = 1;
+  bytes task_id = 2;
+  uint64 target_cluster_id = 3;
+  uint64 region_id = 4;
+  metapb.RegionEpoch region_epoch = 5;
+  // The protobuf default value V1 is valid when this field is omitted.
+  kvrpcpb.APIVersion api_version = 6;
+  backup.StorageBackend source_backend_binding = 7;
+  // A task must contain at least one source descriptor.
+  repeated SourceSstV1 source_ssts = 8;
+
+  // Reserved for a downstream fork.
+  reserved 1000 to 1199;
+}
+
+// SourceSstV1 contains the subset of the existing ImportSST Download request
+// that the Worker needs to download, crop, and rewrite one source SST.
+message SourceSstV1 {
+  string name = 1;
+  uint64 length = 2;
+  string cf_name = 3;
+  // Post-rewrite crop range. V1 treats both bounds as inclusive, matching the
+  // existing Classic transactional snapshot download path.
+  import_sstpb.Range range = 4;
+  bytes cipher_iv = 5;
+  import_sstpb.RewriteRule rewrite_rule = 6;
+
+  // Reserved for a downstream fork.
+  reserved 1000 to 1199;
+}
+
+// PreparedResultV1 is the canonical durable manifest for one completed
+// physical Prepare execution. Existing field numbers and types are frozen.
+message PreparedResultV1 {
+  uint32 protocol_version = 1;
+  bytes restore_id = 2;
+  bytes task_id = 3;
+  uint64 prepare_execution_id = 4;
+  bytes task_spec_hash = 5;
+  repeated PreparedSstV1 outputs = 6;
+
+  // Reserved for a downstream fork.
+  reserved 1000 to 1199;
+}
+
+// PreparedSstV1 references one ordered final CSE SST object.
+message PreparedSstV1 {
+  uint64 file_id = 1;
+  uint64 size = 2;
+  bytes physical_sha256 = 3;
+
+  // Reserved for a downstream fork.
+  reserved 1000 to 1199;
+}
