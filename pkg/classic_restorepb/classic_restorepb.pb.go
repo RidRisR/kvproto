@@ -422,8 +422,8 @@ type SourceSstV1 struct {
 	Name   string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Length uint64 `protobuf:"varint,2,opt,name=length,proto3" json:"length,omitempty"`
 	CfName string `protobuf:"bytes,3,opt,name=cf_name,json=cfName,proto3" json:"cf_name,omitempty"`
-	// Post-rewrite crop range. V1 treats both bounds as inclusive, matching the
-	// existing Classic transactional snapshot download path.
+	// Post-rewrite logical crop range [start, end). A nonempty start is
+	// inclusive, a nonempty end is exclusive, and an empty bound is unbounded.
 	Range       *import_sstpb.Range       `protobuf:"bytes,4,opt,name=range,proto3" json:"range,omitempty"`
 	CipherIv    []byte                    `protobuf:"bytes,5,opt,name=cipher_iv,json=cipherIv,proto3" json:"cipher_iv,omitempty"`
 	RewriteRule *import_sstpb.RewriteRule `protobuf:"bytes,6,opt,name=rewrite_rule,json=rewriteRule,proto3" json:"rewrite_rule,omitempty"`

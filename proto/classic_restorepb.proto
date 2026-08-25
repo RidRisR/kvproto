@@ -108,8 +108,8 @@ message SourceSstV1 {
   string name = 1;
   uint64 length = 2;
   string cf_name = 3;
-  // Post-rewrite crop range. V1 treats both bounds as inclusive, matching the
-  // existing Classic transactional snapshot download path.
+  // Post-rewrite logical crop range [start, end). A nonempty start is
+  // inclusive, a nonempty end is exclusive, and an empty bound is unbounded.
   import_sstpb.Range range = 4;
   bytes cipher_iv = 5;
   import_sstpb.RewriteRule rewrite_rule = 6;
